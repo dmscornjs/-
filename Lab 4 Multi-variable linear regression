@@ -1,0 +1,95 @@
+	import tensorflow as tf #탠선플로우를 불러온다
+	tf.set_random_seed(777)  # for reproducibility #seed가 같으면 이후의 랜덥하게 생성되는 숫자들이 동일하게 만들어진다.
+	
+
+	filename_queue = tf.train.string_input_producer(
+	    ['data-01-test-score.csv'], shuffle=False, name='filename_queue') 
+#queue로 파일을 불러온다. 여러 개가 아니므로 셔플을 하지 않기 때문에 False를 쓴다. 
+	
+
+	reader = tf.TextLineReader() #한 줄씩 데이터를 읽는다.
+
+	key, value = reader.read(filename_queue) key #텍스트 파일 읽을 때 일반적으로 사용한다.
+	
+
+	# Default values, in case of empty columns. Also specifies the type of the
+	# decoded result.
+	record_defaults = [[0.], [0.], [0.], [0.]]
+	xy = tf.decode_csv(value, record_defaults=record_defaults)
+	#csv decoder를 사용하기 위하여 record_defaluts를 사용한다.
+#6개의 필드 다 float형이다. 디폴트값은 0.~~로 지정한다.
+# 읽어온 value 값을 어떻게 이해할 것인가 하는 것을 tf.decode_csv 라는 것으로 가져올 수 있다. 읽어 올 때, 각각의 필드에 해당되는 값이 어떠한 데이터 타입인지 정해줄 수 있다. 이 때 다 float 이기 때문에 0이 들어오는 것이다.
+
+	# collect batches of csv in
+	train_x_batch, train_y_batch = \
+	    tf.train.batch([xy[0:-1], xy[-1:]], batch_size=10)
+#detaset.csv의 배치를 수집한다. X,y 데이터를 한 번에 열 개 씩 가져옴.
+	
+
+	# placeholders for a tensor that will be always fed.
+	X = tf.placeholder(tf.float32, shape=[None, 3]) 
+	Y = tf.placeholder(tf.float32, shape=[None, 1])
+	#불러온 csv의 파일의 데이터에 맞게 x1,x2,x3값 3개를 tf.placeholder에 저장시킨다
+#y값을 tf.placeholder에 저장
+
+	W = tf.Variable(tf.random_normal([3, 1]), name='weight')
+#3개의 x값을  불러와서 1개의 출력값(y)을 나타낸다.
+	b = tf.Variable(tf.random_normal([1]), name='bias')
+	# 정해진 출력 개수에 맞게 y값 1개 출력한다.
+
+	# Hypothesis
+	hypothesis = tf.matmul(X, W) + b
+	#tf.matmu-곱셈을 나타냄. // X와 W를 곱하고 bias 값을 더해준 값을 가정함.
+
+	# Simplified cost/loss function
+	cost = tf.reduce_mean(tf.square(hypothesis - Y))
+	#가정 값에서 Y값을 뺀다 = 평균제곱오차를 구하는 것이다.
+
+	# Minimize
+	optimizer = tf.train.GradientDescentOptimizer(learning_rate=1e-5)
+#경사하강법 사용 : 1e^-4의 학습률로 평균 제곱 오차가 최소화 되는 곳을 찾아 구한다.
+GrandientDescentOptimizer는 경사를 내려오게 하는 알고리즘 형태이다.
+	train = optimizer.minimize(cost)
+	#tensorflow에 저장되어 있는 train에 optimizer의 minimize를 호출./ 줄이고자 하는 cost값을 전달한다.
+
+	# Launch the graph in a session.
+	sess = tf.Session()
+#세션에서 그래프를 시작한다.
+	# Initializes global variables in the graph.
+	sess.run(tf.global_variables_initializer())
+	#그래프에서 전역변수를 초기화 한다.
+
+	# Start populating the filename queue.
+	coord = tf.train.Coordinator()
+#tf.train.Coordinator()-쓰레드를 컨트롤 할 수 있다. 이를 선언하고 각각의 쓰레드를 저장
+	threads = tf.train.start_queue_runners(sess=sess, coord=coord)
+	#큐 러너와 쓰레드의 생성 및 시작 등을 형태에 맞춰 자동으로 생성하고 지정해준다.
+
+	for step in range(2001):#2001번의 실행학습을 한다.
+	    x_batch, y_batch = sess.run([train_x_batch, train_y_batch])
+	    cost_val, hy_val, _ = sess.run(
+	        [cost, hypothesis, train], feed_dict={X: x_batch, Y: y_batch})
+	    if step % 10 == 0:#2000번의 실행을 10씩 나눠서 출력한다.
+	        print(step, "Cost: ", cost_val, "\nPrediction:\n", hy_val)
+	#출력할 때 Cost: ooo식으로 출력하도록 한다.
+
+	coord.request_stop()
+#완료 후, 쓰레드에 정지를 요청한다.
+	coord.join(threads)
+	#실제로 정지하길 대기한다.
+
+	# Ask my score
+	print("Your score will be ",
+	      sess.run(hypothesis, feed_dict={X: [[100, 70, 101]]}))
+	
+
+	print("Other scores will be ",
+	      sess.run(hypothesis, feed_dict={X: [[60, 70, 110], [90, 100, 80]]}))
+	
+
+	'''
+	Your score will be  [[185.33531]]
+	Other scores will be  [[178.36246]
+	 [177.03687]]
+	'''
+#예측하여 출력하는 코드다.

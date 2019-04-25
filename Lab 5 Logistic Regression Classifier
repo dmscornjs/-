@@ -1,0 +1,91 @@
+import tensorflow as tf #tenssorflow를 실행한다
+tf.set_random_seed(777)  # for reproducibility
+#실행할 때마다 같은 결과를 출력하기 위해 random seed를 설정한다.
+
+x_data = [[1, 2],
+          [2, 3],
+          [3, 1],
+          [4, 3],
+          [5, 3],
+          [6, 2]]
+y_data = [[0],
+          [0],
+          [0],
+          [1],
+          [1],
+          [1]]
+#X_data와 y_data를 넣어준다.
+
+# placeholders for a tensor that will be always fed.
+X = tf.placeholder(tf.float32, shape=[None, 2])
+Y = tf.placeholder(tf.float32, shape=[None, 1])
+#입력 값을 저장할 placeholder를 생성하며 x_data와 y_data의 값이 들어가게 된다.
+
+W = tf.Variable(tf.random_normal([2, 1]), name='weight')
+b = tf.Variable(tf.random_normal([1]), name='bias')
+#기울기 W와 바이어스 b의 값을 random으로 정해주도록 하는 변수.
+
+# Hypothesis using sigmoid: tf.div(1., 1. + tf.exp(tf.matmul(X, W)))
+hypothesis = tf.sigmoid(tf.matmul(X, W) + b)
+#sigmoid함수를 구현한 코드
+
+# cost/loss function
+cost = -tf.reduce_mean(Y * tf.log(hypothesis) + (1 - Y) *
+                       tf.log(1 - hypothesis))
+#cost 함수 최소화, reduce_mean은 값을 평균내는 함수
+
+train = tf.train.GradientDescentOptimizer(learning_rate=0.01).minimize(cost)
+#cost값을 최소로 하는 값을 찾도록 학습시키며, 학습률은 0.01로 섷정했다.
+# Accuracy computation
+# True if hypothesis>0.5 else False
+predicted = tf.cast(hypothesis > 0.5, dtype=tf.float32)
+accuracy = tf.reduce_mean(tf.cast(tf.equal(predicted, Y), dtype=tf.float32))
+#predicted는 예측 값을 저장하는 곳으로써, random으로 설정된 W,b의 값에 따라 나온 hypothesis값이 0.5를 넘우면 1로 아니면 0으로 설정한다.
+#accuracy는 정확도를 판별하는 변수로써, 예측 값(predicted)과 실제 값(Y)을 비교하여 같을 경우는 1, 아닐 경우는 0으로 바뀌어 저장하여 나중에 이들의 평균을 통해 정확도를 갖는다.
+
+# Launch graph
+with tf.Session() as sess:
+    # Initialize TensorFlow variables
+    sess.run(tf.global_variables_initializer())
+# Variables을 initializer 한다.
+
+    for step in range(10001):
+        cost_val, _ = sess.run([cost, train], feed_dict={X: x_data, Y: y_data})
+        if step % 200 == 0:
+            print(step, cost_val)
+#10001번 반복하여 실행한다.
+#오차 값을 cost_val에 넣으며 X와 Y에는 x_data와 y_data가 들어간다.
+
+    # Accuracy report
+    h, c, a = sess.run([hypothesis, predicted, accuracy],
+                       feed_dict={X: x_data, Y: y_data})
+    print("\nHypothesis: ", h, "\nCorrect (Y): ", c, "\nAccuracy: ", a)
+
+
+'''
+0 1.73078
+200 0.571512
+400 0.507414
+600 0.471824
+800 0.447585
+...
+9200 0.159066
+9400 0.15656
+9600 0.154132
+9800 0.151778
+10000 0.149496
+
+Hypothesis:  [[ 0.03074029]
+ [ 0.15884677]
+ [ 0.30486736]
+ [ 0.78138196]
+ [ 0.93957496]
+ [ 0.98016882]]
+Correct (Y):  [[ 0.]
+ [ 0.]
+ [ 0.]
+ [ 1.]
+ [ 1.]
+ [ 1.]]
+Accuracy:  1.0
+'''
